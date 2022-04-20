@@ -1,7 +1,9 @@
 const express = require('express')
 const mysql = require('mysql')
 const constant = require('./const')
+const cors = require('cors')
 const app = express()
+app.use(cors())
 app.get('/', (req, res) => {
     res.send(new Date().toDateString())
 })
@@ -17,23 +19,6 @@ function connect() {
         database: 'book'
     })
 }
-app.get('/book/list', (req, res) => {
-    const conn = connect()
-    conn.query('select * from book', (err, results) => {
-        if (err) {
-            res.json({
-                err_code: 1,
-                msg: '数据库查询失败'
-            })
-        } else {
-            res.json({
-                error_code: 0,
-                data:results
-            })
-        }
-        conn.end()
-    })
-})
 function randomArray(n, l) {
     let rnd = []
     for(let i = 0; i < n; i++) {
@@ -82,10 +67,10 @@ function createCategoryIds(n) {
 }
 function createCategoryData(results) {
     const categoryIds = createCategoryIds(6)
-    console.log(categoryIds)
+    // console.log(categoryIds)
     const result = []
     categoryIds.forEach(categoryId => {
-        const subList = data.filter(item => item.category === categoryId).slice(0, 4)
+        const subList = results.filter(item => item.category === categoryId).slice(0, 4)
         subList.map(item => {
             return handleData(item)
         })
@@ -94,7 +79,7 @@ function createCategoryData(results) {
             list: subList
         })
     })
-    return result
+    return result.filter(item => item.list.length === 4)
 }
 function createData(results, key) {
     return handleData(results[key])
@@ -253,7 +238,7 @@ app.get('/book/home', (req, res) => {
               }
         ]
         //第一次打印，没有出结果
-        console.log(randomArray(9, length))
+        // console.log(randomArray(9, length))
         randomArray(9, length).forEach(key => {
             //第二次打印，没有结果
             // console.log(createData(results, key))
@@ -278,4 +263,84 @@ app.get('/book/home', (req, res) => {
         })
         conn.end()
     })
+})
+app.get('/book/detail', (req, res) => {
+  const conn = connect()
+  const fileName = req.query.fileName
+  const sql = `select * from book where fileName='${fileName}'`
+  console.log(sql)
+  conn.query(sql, (err, results) => {
+    if(err) {
+      res.json({
+        error_code: 1,
+        msg: '电子书详情获取失败'
+      })
+    }else {
+      if(results && results.length === 0) {
+        res.json ({
+          err_code: 1,
+          msg: '电子书详情获取失败'
+        })
+      } else {
+        const book = handleData(results[0])
+        res.json({
+          err_code: 0,
+          msg: '获取成功',
+          data: book
+        })
+      }
+    }
+    conn.end()
+  })
+})
+app.get('/book/list', (req, res) => {
+  const conn = connect()
+  conn.query('select * from book where cover!=\'\'',
+    (err, results) => {
+      if (err) {
+         res.json({
+           err_code: 1,
+           msg: '获取失败'
+         })
+      } else {
+        results.map(item => handleData(item))
+        const data = {}
+        constant.category.forEach(categoryText => {
+          data[categoryText] = results.filter(item => item.categoryText === categoryText)
+        })
+        res.json({
+          err_code: 0,
+          msg: '获取成功',
+          data: data,
+          total: results.length
+        })
+      }
+      conn.end()
+    })
+})
+app.get('/book/flat-list', (req, res) => {
+  const conn = connect()
+  conn.query('select * from book where cover!=\'\'',
+    (err, results) => {
+      if (err) {
+         res.json({
+           err_code: 1,
+           msg: '获取失败'
+         })
+      } else {
+        results.map(item => handleData(item))
+        res.json({
+          err_code: 0,
+          msg: '获取成功',
+          data: results,
+          total: results.length
+        })
+      }
+      conn.end()
+    })
+})
+app.get('/book/shelf', (req, res) => {
+  res.json({
+    bookList:[]
+  })
 })
